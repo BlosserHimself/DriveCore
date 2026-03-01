@@ -1,0 +1,21 @@
+# Build directories
+build/
+out/
+cmake-build-*/
+CMakeFiles/
+
+# Object files
+*.o
+*.obj
+*.elf
+*.bin
+*.hex
+*.map
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
