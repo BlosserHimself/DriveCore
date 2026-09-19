@@ -16,9 +16,15 @@ namespace dc {
 
     class SubscriptionManager {
         public:
+            using RequesterId = uint8_t;
+
             void subscribe (Category c, Topic t, Priority p = priority::MS_100);
+            void subscribe (RequesterId requester_id, Category c, Topic t,
+                            Priority p);
 
             void unsubscribe(Category c, Topic t);
+            void unsubscribe(RequesterId requester_id, Category c, Topic t);
+            void unsubscribe_all(RequesterId requester_id);
 
             bool isSubscribed(Category c, Topic t) const;
 
@@ -32,10 +38,20 @@ namespace dc {
             }
 
         private:
+            using RequesterKey = uint16_t;
+
             static constexpr uint16_t make_key(Category c, Topic t) {
                 return (static_cast<uint16_t>(c) << 8) | static_cast<uint16_t>(t);
             }
 
+            static constexpr RequesterKey legacy_requester = 0x100;
+
+            void set_request(RequesterKey requester_id, Category c, Topic t,
+                             Priority p);
+            void remove_request(RequesterKey requester_id, Category c, Topic t);
+            void recalculate(uint16_t key);
+
             std::unordered_map<uint16_t, Subscription> subscriptions_;
+            std::unordered_map<uint16_t, std::unordered_map<RequesterKey, Priority>> requests_;
     };
 }
