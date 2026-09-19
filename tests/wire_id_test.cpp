@@ -111,6 +111,82 @@ namespace {
         assert(dc::encode_data_id(data, id) == dc::WireIdError::NONE);
         assert(dc::decode_subscription_id(id, output) == dc::WireIdError::WRONG_KIND);
     }
+
+    void test_command_round_trip_and_boundaries() {
+        const auto actions = {
+            dc::CommandAction::TRIGGER,
+            dc::CommandAction::PRESS,
+            dc::CommandAction::HOLD,
+            dc::CommandAction::BUTTON_DOWN,
+            dc::CommandAction::BUTTON_UP,
+            dc::CommandAction::SET,
+            dc::CommandAction::INCREMENT,
+            dc::CommandAction::DECREMENT,
+            dc::CommandAction::TOGGLE,
+        };
+
+        for (const uint8_t arbitration_class : {uint8_t{0}, uint8_t{7}}) {
+            for (const uint8_t category : {uint8_t{0}, uint8_t{0xFF}}) {
+                for (const uint8_t topic : {uint8_t{0}, uint8_t{0xFF}}) {
+                    for (const auto action : actions) {
+                        const dc::CommandWireId input{
+                            arbitration_class, category, topic, action, 0};
+                        uint32_t id = 0;
+                        assert(dc::encode_command_id(input, id) ==
+                               dc::WireIdError::NONE);
+                        assert(id <= dc::wire_id::MAX_EXTENDED_ID);
+                        assert((id & 0x0Fu) == 0u);
+
+                        dc::CommandWireId output{
+                            7, 0xAA, 0xAA, dc::CommandAction::TOGGLE, 0xAA};
+                        assert(dc::decode_command_id(id, output) ==
+                               dc::WireIdError::NONE);
+                        assert(output.arbitration_class == input.arbitration_class);
+                        assert(output.category == input.category);
+                        assert(output.topic == input.topic);
+                        assert(output.action == input.action);
+                        assert(output.extension == 0);
+                    }
+                }
+            }
+        }
+    }
+
+    void test_command_validation() {
+        uint32_t id = 0;
+        const auto action = dc::CommandAction::TRIGGER;
+
+        assert(dc::encode_command_id({8, 0, 0, action, 0}, id) ==
+               dc::WireIdError::VALUE_OUT_OF_RANGE);
+        assert(dc::encode_command_id(
+                   {0, 0, 0, static_cast<dc::CommandAction>(9), 0}, id) ==
+               dc::WireIdError::RESERVED_COMMAND_ACTION);
+        assert(dc::encode_command_id(
+                   {0, 0, 0, static_cast<dc::CommandAction>(15), 0}, id) ==
+               dc::WireIdError::RESERVED_COMMAND_ACTION);
+        assert(dc::encode_command_id({0, 0, 0, action, 1}, id) ==
+               dc::WireIdError::NONZERO_COMMAND_EXTENSION);
+
+        dc::CommandWireId output{
+            0, 0, 0, dc::CommandAction::TRIGGER, 0};
+        assert(dc::decode_command_id(0x02000090u, output) ==
+               dc::WireIdError::RESERVED_COMMAND_ACTION);
+        assert(dc::decode_command_id(0x02000011u, output) ==
+               dc::WireIdError::NONZERO_COMMAND_EXTENSION);
+        assert(dc::decode_command_id(0x20000000u, output) ==
+               dc::WireIdError::VALUE_OUT_OF_RANGE);
+
+        const dc::DataWireId data{0, 0, 0, 0};
+        assert(dc::encode_data_id(data, id) == dc::WireIdError::NONE);
+        assert(dc::decode_command_id(id, output) == dc::WireIdError::WRONG_KIND);
+
+        const dc::SubscriptionWireId subscription{
+            dc::priority::REALTIME, 0, 0, 0,
+            dc::SubscriptionOperation::SUBSCRIBE_OR_UPDATE};
+        assert(dc::encode_subscription_id(subscription, id) ==
+               dc::WireIdError::NONE);
+        assert(dc::decode_command_id(id, output) == dc::WireIdError::WRONG_KIND);
+    }
 }
 
 int main() {
@@ -118,4 +194,6 @@ int main() {
     test_data_validation();
     test_subscription_round_trip_and_valid_freshness();
     test_subscription_validation();
+    test_command_round_trip_and_boundaries();
+    test_command_validation();
 }
