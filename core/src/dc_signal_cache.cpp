@@ -9,10 +9,9 @@ namespace dc {
         e.valid.store(1, std::memory_order_release);
     }
 
-    void SignalCache32::update_u32(Category c, Topic t, uint16_t v, uint32_t now_ms) {
-        // Note: header currently takes uint16_t for update_u32; store as 32-bit value.
+    void SignalCache32::update_u32(Category c, Topic t, uint32_t v, uint32_t now_ms) {
         auto& e = entry(c, t);
-        e.value.store(static_cast<uint32_t>(v), std::memory_order_relaxed);
+        e.value.store(v, std::memory_order_relaxed);
         e.last_rx_ms.store(now_ms, std::memory_order_relaxed);
         e.valid.store(1, std::memory_order_release);
     }

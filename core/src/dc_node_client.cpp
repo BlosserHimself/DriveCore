@@ -1,4 +1,3 @@
-// ...existing code...
 #include "dc_node_client.hpp"
 
 namespace dc {
@@ -43,8 +42,7 @@ namespace dc {
                          (static_cast<uint32_t>(msg.payload[1]) << 8) |
                          (static_cast<uint32_t>(msg.payload[2]) << 16) |
                          (static_cast<uint32_t>(msg.payload[3]) << 24);
-            // header signature currently accepts uint16_t for update_u32; cast down.
-            cache_.update_u32(c, t, static_cast<uint16_t>(v & 0xFFFF), now_ms);
+            cache_.update_u32(c, t, v, now_ms);
         } else {
             // unsupported payload size — ignore for now
         }

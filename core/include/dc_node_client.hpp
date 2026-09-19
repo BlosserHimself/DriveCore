@@ -7,6 +7,8 @@
 #include "dc_message.hpp"
 
 namespace dc {
+    class NodeClient;
+
     template<typename T>
     class SignalHandle {
         public:

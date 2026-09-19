@@ -23,7 +23,7 @@ namespace dc {
         public:
             // Called by Rx handler when msg arrives
             void update_u16(Category c, Topic t, uint16_t v, uint32_t now_ms);
-            void update_u32(Category c, Topic t, uint16_t v, uint32_t now_ms);
+            void update_u32(Category c, Topic t, uint32_t v, uint32_t now_ms);
 
             // Called by UI / app
             uint16_t get_u16(Category c, Topic t, uint16_t default_v = 0) const;
