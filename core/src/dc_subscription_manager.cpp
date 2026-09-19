@@ -3,12 +3,7 @@
 namespace dc {
     void SubscriptionManager::subscribe(Category c, Topic t, Priority p) {
         const uint16_t key = make_key(c, t);
-        Subscription s {
-            .category = c,
-            .topic = t,
-            .priority = p,
-            .period_ms = priority_to_period_ms(p),
-        };
+        Subscription s { c, t, p, priority_to_period_ms(p) };
         subscriptions_[key] = s;
     }
 

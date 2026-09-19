@@ -39,11 +39,7 @@ namespace dc {
         std::vector<Snapshot> out;
         out.reserve(buses_.size());
         for (const auto& b : buses_) {
-            out.push_back(Snapshot{
-                .type = b->type(),
-                .state = b->state(),
-                .stats = b->stats(),
-            });
+            out.push_back(Snapshot{b->type(), b->state(), b->stats()});
         }
         return out;
     }

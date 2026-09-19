@@ -6,13 +6,13 @@ namespace dc {
         : node_id_(node_id) {}
 
     SignalHandle<uint16_t> NodeClient::subscribe_u16(Category c, Topic t, Priority p) {
-        SubscriptionRequest req { .category = c, .topic = t, .priority = p };
+        SubscriptionRequest req { c, t, p };
         subs_.push_back(req);
         return SignalHandle<uint16_t>(this, c, t);
     }
 
     SignalHandle<uint32_t> NodeClient::subscribe_u32(Category c, Topic t, Priority p) {
-        SubscriptionRequest req { .category = c, .topic = t, .priority = p };
+        SubscriptionRequest req { c, t, p };
         subs_.push_back(req);
         return SignalHandle<uint32_t>(this, c, t);
     }
