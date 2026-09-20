@@ -3,6 +3,7 @@
 
 #include "dc_fake_bus.hpp"
 #include "dc_frame_codec.hpp"
+#include "dc_subscription_manager.hpp"
 #include "dc_topics.hpp"
 
 namespace {
@@ -48,8 +49,12 @@ namespace {
     }
 
     void publish_state_if_subscribed(
-        dc::FakeBus& gateway, bool subscribed, uint8_t state) {
-        if (subscribed) publish_state(gateway, state);
+        dc::FakeBus& gateway,
+        const dc::SubscriptionManager& subscriptions,
+        uint8_t state) {
+        if (subscriptions.isSubscribed(climate, driver_seat_heat)) {
+            publish_state(gateway, state);
+        }
     }
 
     bool execute_press_if_matched(
@@ -72,7 +77,7 @@ namespace {
     }
 
     bool update_subscription_if_matched(
-        const dc::Frame& frame, bool& gateway_subscription_active) {
+        const dc::Frame& frame, dc::SubscriptionManager& subscriptions) {
         dc::SubscriptionWireId subscription_id{
             0, 0, 0, 0, dc::SubscriptionOperation::SUBSCRIBE_OR_UPDATE};
         const dc::FrameCodecError result =
@@ -87,11 +92,18 @@ namespace {
 
         if (subscription_id.operation ==
             dc::SubscriptionOperation::SUBSCRIBE_OR_UPDATE) {
-            gateway_subscription_active = true;
+            subscriptions.subscribe(
+                subscription_id.requester_id,
+                subscription_id.category,
+                subscription_id.topic,
+                subscription_id.freshness);
             return true;
         }
         if (subscription_id.operation == dc::SubscriptionOperation::UNSUBSCRIBE) {
-            gateway_subscription_active = false;
+            subscriptions.unsubscribe(
+                subscription_id.requester_id,
+                subscription_id.category,
+                subscription_id.topic);
             return true;
         }
         return false;
@@ -105,7 +117,7 @@ namespace {
     }
 
     void receive_and_apply_subscription(
-        dc::FakeBus& gateway, bool& gateway_subscription_active) {
+        dc::FakeBus& gateway, dc::SubscriptionManager& subscriptions) {
         dc::Frame frame{};
         assert(gateway.poll(frame));
         assert(frame.length == 0);
@@ -120,7 +132,7 @@ namespace {
         assert(decoded.requester_id == requester_id);
         assert(decoded.operation == dc::SubscriptionOperation::SUBSCRIBE_OR_UPDATE ||
                decoded.operation == dc::SubscriptionOperation::UNSUBSCRIBE);
-        assert(update_subscription_if_matched(frame, gateway_subscription_active));
+        assert(update_subscription_if_matched(frame, subscriptions));
     }
 
     void receive_state(
@@ -148,30 +160,30 @@ namespace {
 
         uint8_t gateway_state = 0;
         uint8_t candeck_observed_state = 0;
-        bool gateway_subscription_active = false;
+        dc::SubscriptionManager gateway_subscriptions;
         assert(gateway_state == 0);
         assert(candeck_observed_state == 0);
-        assert(!gateway_subscription_active);
+        assert(!gateway_subscriptions.isSubscribed(climate, driver_seat_heat));
 
         send_press(candeck);
         receive_and_apply_command(gateway, gateway_state);
         assert(gateway_state == 1);
         publish_state_if_subscribed(
-            gateway, gateway_subscription_active, gateway_state);
+            gateway, gateway_subscriptions, gateway_state);
         assert(has_no_frame(candeck));
 
         send_subscription(
             candeck, dc::SubscriptionOperation::SUBSCRIBE_OR_UPDATE);
-        receive_and_apply_subscription(gateway, gateway_subscription_active);
-        assert(gateway_subscription_active);
+        receive_and_apply_subscription(gateway, gateway_subscriptions);
+        assert(gateway_subscriptions.isSubscribed(climate, driver_seat_heat));
         assert(has_no_frame(candeck));
 
         send_press(candeck);
         receive_and_apply_command(gateway, gateway_state);
         assert(gateway_state == 2);
-        assert(gateway_subscription_active);
+        assert(gateway_subscriptions.isSubscribed(climate, driver_seat_heat));
         publish_state_if_subscribed(
-            gateway, gateway_subscription_active, gateway_state);
+            gateway, gateway_subscriptions, gateway_state);
         receive_state(candeck, candeck_observed_state, 2);
         assert(has_no_frame(gateway));
 
@@ -179,21 +191,21 @@ namespace {
         receive_and_apply_command(gateway, gateway_state);
         assert(gateway_state == 3);
         publish_state_if_subscribed(
-            gateway, gateway_subscription_active, gateway_state);
+            gateway, gateway_subscriptions, gateway_state);
         receive_state(candeck, candeck_observed_state, 3);
         assert(has_no_frame(gateway));
 
         send_subscription(candeck, dc::SubscriptionOperation::UNSUBSCRIBE);
-        receive_and_apply_subscription(gateway, gateway_subscription_active);
-        assert(!gateway_subscription_active);
+        receive_and_apply_subscription(gateway, gateway_subscriptions);
+        assert(!gateway_subscriptions.isSubscribed(climate, driver_seat_heat));
         assert(has_no_frame(candeck));
 
         send_press(candeck);
         receive_and_apply_command(gateway, gateway_state);
         assert(gateway_state == 0);
-        assert(!gateway_subscription_active);
+        assert(!gateway_subscriptions.isSubscribed(climate, driver_seat_heat));
         publish_state_if_subscribed(
-            gateway, gateway_subscription_active, gateway_state);
+            gateway, gateway_subscriptions, gateway_state);
         assert(has_no_frame(candeck));
         assert(candeck_observed_state == 3);
     }
