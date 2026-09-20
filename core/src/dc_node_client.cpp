@@ -2,8 +2,11 @@
 
 namespace dc {
 
-    NodeClient::NodeClient(uint8_t node_id)
-        : node_id_(node_id) {}
+    NodeClient::NodeClient(uint16_t requester_id)
+        : requester_id_(requester_id), bus_(nullptr) {}
+
+    NodeClient::NodeClient(IBus& bus, uint16_t requester_id)
+        : requester_id_(requester_id), bus_(&bus) {}
 
     SignalHandle<uint16_t> NodeClient::subscribe_u16(Category c, Topic t, Priority p) {
         SubscriptionRequest req { c, t, p };
@@ -17,16 +20,47 @@ namespace dc {
         return SignalHandle<uint32_t>(this, c, t);
     }
 
-    std::vector<uint8_t> NodeClient::build_subscription_payload() const {
-        // Simple wire format: sequence of (category, topic, priority)
-        std::vector<uint8_t> out;
-        out.reserve(subs_.size() * 3);
-        for (const auto& s : subs_) {
-            out.push_back(static_cast<uint8_t>(s.category));
-            out.push_back(static_cast<uint8_t>(s.topic));
-            out.push_back(static_cast<uint8_t>(s.priority));
+    NodeClient::SubscriptionSendError NodeClient::send_subscription(
+        Category c, Topic t, Priority p) {
+        return send_subscription_frame(
+            c, t, p, SubscriptionOperation::SUBSCRIBE_OR_UPDATE);
+    }
+
+    NodeClient::SubscriptionSendError NodeClient::send_unsubscribe(
+        Category c, Topic t) {
+        const SubscriptionSendError result = send_subscription_frame(
+            c, t, priority::REALTIME, SubscriptionOperation::UNSUBSCRIBE);
+        if (result == SubscriptionSendError::NONE) {
+            remove_local_subscriptions(c, t);
         }
-        return out;
+        return result;
+    }
+
+    NodeClient::SubscriptionSendError NodeClient::send_subscription_frame(
+        Category c, Topic t, Priority p, SubscriptionOperation operation) {
+        if (!bus_) return SubscriptionSendError::NO_BUS;
+        if (requester_id_ > 63) {
+            return SubscriptionSendError::INVALID_REQUESTER_ID;
+        }
+
+        const SubscriptionWireId wire_id{
+            p, c, t, static_cast<uint8_t>(requester_id_), operation};
+        Frame frame{};
+        if (encode_subscription_frame(wire_id, frame) != FrameCodecError::NONE) {
+            return SubscriptionSendError::FRAME_CODEC_ERROR;
+        }
+        if (!bus_->send(frame)) return SubscriptionSendError::BUS_SEND_FAILED;
+        return SubscriptionSendError::NONE;
+    }
+
+    void NodeClient::remove_local_subscriptions(Category c, Topic t) {
+        for (auto it = subs_.begin(); it != subs_.end();) {
+            if (it->category == c && it->topic == t) {
+                it = subs_.erase(it);
+            } else {
+                ++it;
+            }
+        }
     }
 
     void NodeClient::on_message(const Message& msg, uint32_t now_ms) {

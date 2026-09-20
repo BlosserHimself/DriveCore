@@ -2,6 +2,8 @@
 #include <vector>
 #include <cstdint>
 
+#include "dc_bus.hpp"
+#include "dc_frame_codec.hpp"
 #include "dc_subscription.hpp"
 #include "dc_signal_cache.hpp"
 #include "dc_message.hpp"
@@ -25,14 +27,24 @@ namespace dc {
 
     class NodeClient {
         public:
-            explicit NodeClient(uint8_t node_id = 0);
+            enum class SubscriptionSendError : uint8_t {
+                NONE,
+                NO_BUS,
+                INVALID_REQUESTER_ID,
+                FRAME_CODEC_ERROR,
+                BUS_SEND_FAILED,
+            };
+
+            explicit NodeClient(uint16_t requester_id = 0);
+            NodeClient(IBus& bus, uint16_t requester_id = 0);
 
             // Subscription declarations
             SignalHandle<uint16_t> subscribe_u16(Category c, Topic t, Priority p);
             SignalHandle<uint32_t> subscribe_u32(Category c, Topic t, Priority p);
 
-            // Registration payload builder for startup handshake
-            std::vector<uint8_t> build_subscription_payload() const;
+            SubscriptionSendError send_subscription(
+                Category c, Topic t, Priority p);
+            SubscriptionSendError send_unsubscribe(Category c, Topic t);
 
             // Message input from CAN (after decoding)
             void on_message(const Message& msg, uint32_t now_ms);
@@ -44,7 +56,12 @@ namespace dc {
             bool has(Category c, Topic t) const;
 
         private:
-            uint8_t node_id_;
+            SubscriptionSendError send_subscription_frame(
+                Category c, Topic t, Priority p, SubscriptionOperation operation);
+            void remove_local_subscriptions(Category c, Topic t);
+
+            uint16_t requester_id_;
+            IBus* bus_;
             std::vector<SubscriptionRequest> subs_;
             SignalCache32 cache_;
     };
