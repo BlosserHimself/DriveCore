@@ -9,6 +9,7 @@ namespace dc {
         constexpr Category SYSTEM = 0x01;
         constexpr Category SENSOR = 0x02;
         constexpr Category UI     = 0x03;
+        constexpr Category CLIMATE = 0x04;
     }
 
     namespace topic {
@@ -20,6 +21,10 @@ namespace dc {
         namespace sensor {
             constexpr Topic RPM     = 0x01;
             constexpr Topic COOLANT = 0x02;
+        }
+
+        namespace climate {
+            constexpr Topic DRIVER_SEAT_HEAT = 0x01;
         }
     }
 }
