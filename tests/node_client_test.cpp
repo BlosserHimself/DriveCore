@@ -40,7 +40,7 @@ namespace {
         assert(receiver_bus.poll(frame));
         assert(dc::decode_subscription_frame(frame, subscription) ==
                dc::FrameCodecError::NONE);
-         assert(subscription.freshness == dc::priority::REALTIME);
+        assert(subscription.freshness == dc::priority::REALTIME);
         assert(subscription.requester_id == 7);
         assert(subscription.category == climate);
         assert(subscription.topic == driver_seat_heat);
