@@ -4,16 +4,36 @@
 #include <optional>
 
 #include "dc_bus.hpp"
+#include "dc_bus_monitor.hpp"
+#include "dc_frame_sink.hpp"
 
 namespace dc {
     class BusManager {
         public:
-            // Ownership: BusManager owns bus objects
-            void add(std::unique_ptr<IBus> bus);
+            enum class AttachReceiverError : uint8_t {
+                NONE,
+                UNKNOWN_BUS,
+                ALREADY_ATTACHED,
+            };
+
+            // Ownership: BusManager owns bus objects. Returns a reference to
+            // the bus instance now owned by this manager.
+            IBus& add(std::unique_ptr<IBus> bus);
 
             // Find bus by type (OEM / DRIVECORE / CLUSTER)
             IBus* get(BusType type);
             const IBus* get(BusType type) const;
+
+            // Attaches RX-only monitoring to a bus already owned by this
+            // manager. `bus` must be a reference previously returned by
+            // add() on this same BusManager. `sink` remains externally
+            // owned and must outlive the attached monitor.
+            AttachReceiverError attach_receiver(IBus& bus, IFrameSink& sink);
+
+            // One RX service round: each attached monitor gets exactly one
+            // poll_once() opportunity. Returns true if any monitor handled
+            // a frame. Entries without an attached monitor are skipped.
+            bool poll_receivers_once();
 
             // Start/stop all buses (or individual by type)
             bool start_all();
@@ -26,10 +46,11 @@ namespace dc {
             template <typename Fn>
             void pump(Fn&& on_frame) {
                 Frame f{};
-                for (auto& b : buses_) {
-                    if (b->state() != BusState::RUNNING) continue;
-                    while (b->poll(f)) {
-                        on_frame(*b, f);
+                for (auto& entry : entries_) {
+                    IBus& b = *entry.bus;
+                    if (b.state() != BusState::RUNNING) continue;
+                    while (b.poll(f)) {
+                        on_frame(b, f);
                     }
                 }
             }
@@ -44,6 +65,13 @@ namespace dc {
             std::vector<Snapshot> snapshot() const;
 
         private:
-            std::vector<std::unique_ptr<IBus>> buses_;
+            // Declaration order matters: monitor must be destroyed before
+            // the bus it references.
+            struct Entry {
+                std::unique_ptr<IBus> bus;
+                std::optional<BusMonitor> monitor;
+            };
+
+            std::vector<Entry> entries_;
     };
 }
