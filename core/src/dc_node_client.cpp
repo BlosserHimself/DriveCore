@@ -8,16 +8,16 @@ namespace dc {
     NodeClient::NodeClient(IBus& bus, uint16_t requester_id)
         : requester_id_(requester_id), bus_(&bus) {}
 
-    SignalHandle<uint16_t> NodeClient::subscribe_u16(Category c, Topic t, Priority p) {
+    SignalHandle<SignalCache32, uint16_t> NodeClient::subscribe_u16(Category c, Topic t, Priority p) {
         SubscriptionRequest req { c, t, p };
         subs_.push_back(req);
-        return SignalHandle<uint16_t>(this, c, t);
+        return SignalHandle<SignalCache32, uint16_t>(cache_, SignalKey{c, t});
     }
 
-    SignalHandle<uint32_t> NodeClient::subscribe_u32(Category c, Topic t, Priority p) {
+    SignalHandle<SignalCache32, uint32_t> NodeClient::subscribe_u32(Category c, Topic t, Priority p) {
         SubscriptionRequest req { c, t, p };
         subs_.push_back(req);
-        return SignalHandle<uint32_t>(this, c, t);
+        return SignalHandle<SignalCache32, uint32_t>(cache_, SignalKey{c, t});
     }
 
     NodeClient::SubscriptionSendError NodeClient::send_subscription(
