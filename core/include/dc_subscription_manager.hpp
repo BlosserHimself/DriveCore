@@ -2,8 +2,9 @@
 #include <cstdint>
 #include <unordered_map>
 
-#include "dc_topics.hpp"
 #include "dc_priority.hpp"
+#include "dc_signal_key.hpp"
+#include "dc_topics.hpp"
 
 namespace dc {
 
@@ -41,7 +42,7 @@ namespace dc {
             using RequesterKey = uint16_t;
 
             static constexpr uint16_t make_key(Category c, Topic t) {
-                return (static_cast<uint16_t>(c) << 8) | static_cast<uint16_t>(t);
+                return SignalKey{c, t}.packed();
             }
 
             static constexpr RequesterKey legacy_requester = 0x100;

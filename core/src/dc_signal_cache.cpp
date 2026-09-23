@@ -44,12 +44,12 @@ namespace dc {
     }
 
     SignalEntry32& SignalCache32::entry(Category c, Topic t) {
-        const uint16_t k = SignalKey::make(c, t);
+        const uint16_t k = SignalKey{c, t}.packed();
         return map_[k]; // creates if missing
     }
 
     const SignalEntry32* SignalCache32::entry_if_exists(Category c, Topic t) const {
-        const uint16_t k = SignalKey::make(c, t);
+        const uint16_t k = SignalKey{c, t}.packed();
         auto it = map_.find(k);
         if (it == map_.end()) return nullptr;
         return &it->second;

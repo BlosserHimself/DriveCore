@@ -79,11 +79,10 @@ namespace dc {
             }
         }
 
-        const Category category = static_cast<Category>(key >> 8);
-        const Topic topic = static_cast<Topic>(key & 0xFF);
+        const SignalKey signal_key = SignalKey::unpack(key);
         subscriptions_[key] = Subscription{
-            category,
-            topic,
+            signal_key.category,
+            signal_key.topic,
             effective_priority,
             priority_to_period_ms(effective_priority),
         };

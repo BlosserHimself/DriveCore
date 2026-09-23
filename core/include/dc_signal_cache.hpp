@@ -3,16 +3,10 @@
 #include <unordered_map>
 #include <atomic>
 
+#include "dc_signal_key.hpp"
 #include "dc_topics.hpp"
 
 namespace dc {
-    struct SignalKey {
-        uint16_t key; // (category<<8) | topic
-        static constexpr uint16_t make(Category c, Topic t) {
-            return (static_cast<uint16_t>(c) << 8) | static_cast<uint16_t>(t);
-        }
-    };
-
     struct SignalEntry32 {
         std::atomic<uint32_t> value{0};
         std::atomic<uint32_t> last_rx_ms{0};
