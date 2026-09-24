@@ -2,7 +2,7 @@
 #include <vector>
 #include <cstdint>
 
-#include "dc_bus.hpp"
+#include "dc_dispatcher.hpp"
 #include "dc_frame_codec.hpp"
 #include "dc_subscription.hpp"
 #include "dc_signal_cache.hpp"
@@ -14,14 +14,14 @@ namespace dc {
         public:
             enum class SubscriptionSendError : uint8_t {
                 NONE,
-                NO_BUS,
+                NO_DISPATCHER,
                 INVALID_REQUESTER_ID,
                 FRAME_CODEC_ERROR,
-                BUS_SEND_FAILED,
+                PENDING_FULL,
             };
 
             explicit NodeClient(uint16_t requester_id = 0);
-            NodeClient(IBus& bus, uint16_t requester_id = 0);
+            NodeClient(Dispatcher& dispatcher, uint16_t requester_id = 0);
 
             // Subscription declarations. Returned handles reference this
             // NodeClient's internally-owned cache directly (transitional:
@@ -48,7 +48,7 @@ namespace dc {
             void remove_local_subscriptions(Category c, Topic t);
 
             uint16_t requester_id_;
-            IBus* bus_;
+            Dispatcher* dispatcher_;
             std::vector<SubscriptionRequest> subs_;
             SignalCache32 cache_;
     };

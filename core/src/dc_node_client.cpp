@@ -3,10 +3,10 @@
 namespace dc {
 
     NodeClient::NodeClient(uint16_t requester_id)
-        : requester_id_(requester_id), bus_(nullptr) {}
+        : requester_id_(requester_id), dispatcher_(nullptr) {}
 
-    NodeClient::NodeClient(IBus& bus, uint16_t requester_id)
-        : requester_id_(requester_id), bus_(&bus) {}
+    NodeClient::NodeClient(Dispatcher& dispatcher, uint16_t requester_id)
+        : requester_id_(requester_id), dispatcher_(&dispatcher) {}
 
     SignalHandle<SignalCache32, uint16_t> NodeClient::subscribe_u16(Category c, Topic t, Priority p) {
         SubscriptionRequest req { c, t, p };
@@ -38,7 +38,7 @@ namespace dc {
 
     NodeClient::SubscriptionSendError NodeClient::send_subscription_frame(
         Category c, Topic t, Priority p, SubscriptionOperation operation) {
-        if (!bus_) return SubscriptionSendError::NO_BUS;
+        if (!dispatcher_) return SubscriptionSendError::NO_DISPATCHER;
         if (requester_id_ > 63) {
             return SubscriptionSendError::INVALID_REQUESTER_ID;
         }
@@ -49,7 +49,9 @@ namespace dc {
         if (encode_subscription_frame(wire_id, frame) != FrameCodecError::NONE) {
             return SubscriptionSendError::FRAME_CODEC_ERROR;
         }
-        if (!bus_->send(frame)) return SubscriptionSendError::BUS_SEND_FAILED;
+        if (dispatcher_->submit(frame) != Dispatcher::SubmitResult::ACCEPTED) {
+            return SubscriptionSendError::PENDING_FULL;
+        }
         return SubscriptionSendError::NONE;
     }
 

@@ -1,6 +1,7 @@
 #include <cassert>
 #include <memory>
 
+#include "dc_dispatcher.hpp"
 #include "dc_fake_bus.hpp"
 #include "dc_frame_codec.hpp"
 #include "dc_node_client.hpp"
@@ -27,11 +28,12 @@ namespace {
         assert(candeck.send(command_frame));
     }
 
-    void send_subscription(dc::NodeClient& candeck) {
-        candeck.subscribe_u16(climate, driver_seat_heat, dc::priority::MS_100);
-        assert(candeck.send_subscription(
+    void send_subscription(dc::NodeClient& candeck_client, dc::Dispatcher& dispatcher) {
+        candeck_client.subscribe_u16(climate, driver_seat_heat, dc::priority::MS_100);
+        assert(candeck_client.send_subscription(
                    climate, driver_seat_heat, dc::priority::MS_100) ==
                dc::NodeClient::SubscriptionSendError::NONE);
+        assert(dispatcher.service_once() == dc::Dispatcher::ServiceResult::SENT);
     }
 
     void publish_state(dc::FakeBus& gateway, uint8_t state) {
@@ -157,7 +159,8 @@ namespace {
         auto medium = std::make_shared<dc::FakeCanMedium>();
         dc::FakeBus candeck(medium);
         dc::FakeBus gateway(medium);
-        dc::NodeClient candeck_client(candeck, requester_id);
+        dc::Dispatcher candeck_dispatcher(candeck);
+        dc::NodeClient candeck_client(candeck_dispatcher, requester_id);
         assert(candeck.start());
         assert(gateway.start());
 
@@ -175,7 +178,7 @@ namespace {
             gateway, gateway_subscriptions, gateway_state);
         assert(has_no_frame(candeck));
 
-        send_subscription(candeck_client);
+        send_subscription(candeck_client, candeck_dispatcher);
         receive_and_apply_subscription(gateway, gateway_subscriptions);
         assert(gateway_subscriptions.isSubscribed(climate, driver_seat_heat));
         assert(has_no_frame(candeck));
@@ -199,6 +202,8 @@ namespace {
 
         assert(candeck_client.send_unsubscribe(climate, driver_seat_heat) ==
                dc::NodeClient::SubscriptionSendError::NONE);
+        assert(candeck_dispatcher.service_once() ==
+               dc::Dispatcher::ServiceResult::SENT);
         receive_and_apply_subscription(gateway, gateway_subscriptions);
         assert(!gateway_subscriptions.isSubscribed(climate, driver_seat_heat));
         assert(has_no_frame(candeck));
