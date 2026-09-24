@@ -2,7 +2,7 @@
 
 namespace dc {
     IBus& BusManager::add(std::unique_ptr<IBus> bus) {
-        entries_.push_back(Entry{std::move(bus), std::nullopt});
+        entries_.push_back(Entry{std::move(bus), std::nullopt, std::nullopt});
         return *entries_.back().bus;
     }
 
@@ -36,6 +36,37 @@ namespace dc {
             if (entry.monitor->poll_once()) received_any = true;
         }
         return received_any;
+    }
+
+    BusManager::AttachTransmitterError BusManager::attach_transmitter(IBus& bus) {
+        for (auto& entry : entries_) {
+            if (entry.bus.get() != &bus) continue;
+            if (entry.dispatcher.has_value()) {
+                return AttachTransmitterError::ALREADY_ATTACHED;
+            }
+            entry.dispatcher.emplace(bus);
+            return AttachTransmitterError::NONE;
+        }
+        return AttachTransmitterError::UNKNOWN_BUS;
+    }
+
+    Dispatcher* BusManager::dispatcher(IBus& bus) {
+        for (auto& entry : entries_) {
+            if (entry.bus.get() != &bus) continue;
+            return entry.dispatcher.has_value() ? &(*entry.dispatcher) : nullptr;
+        }
+        return nullptr;
+    }
+
+    bool BusManager::service_transmitters_once() {
+        bool sent_any = false;
+        for (auto& entry : entries_) {
+            if (!entry.dispatcher.has_value()) continue;
+            if (entry.dispatcher->service_once() == Dispatcher::ServiceResult::SENT) {
+                sent_any = true;
+            }
+        }
+        return sent_any;
     }
 
     bool BusManager::start_all() {

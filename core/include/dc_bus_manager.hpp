@@ -5,12 +5,19 @@
 
 #include "dc_bus.hpp"
 #include "dc_bus_monitor.hpp"
+#include "dc_dispatcher.hpp"
 #include "dc_frame_sink.hpp"
 
 namespace dc {
     class BusManager {
         public:
             enum class AttachReceiverError : uint8_t {
+                NONE,
+                UNKNOWN_BUS,
+                ALREADY_ATTACHED,
+            };
+
+            enum class AttachTransmitterError : uint8_t {
                 NONE,
                 UNKNOWN_BUS,
                 ALREADY_ATTACHED,
@@ -30,10 +37,25 @@ namespace dc {
             // owned and must outlive the attached monitor.
             AttachReceiverError attach_receiver(IBus& bus, IFrameSink& sink);
 
+            // Attaches TX-only dispatch infrastructure to a bus already
+            // owned by this manager. `bus` must be a reference previously
+            // returned by add() on this same BusManager.
+            AttachTransmitterError attach_transmitter(IBus& bus);
+
+            // Returns the Dispatcher attached to `bus`, or nullptr if `bus`
+            // is unknown to this manager or has no attached Dispatcher.
+            Dispatcher* dispatcher(IBus& bus);
+
             // One RX service round: each attached monitor gets exactly one
             // poll_once() opportunity. Returns true if any monitor handled
             // a frame. Entries without an attached monitor are skipped.
             bool poll_receivers_once();
+
+            // One TX service round: each attached Dispatcher gets exactly
+            // one service_once() opportunity. Returns true if any Dispatcher
+            // sent a Frame. Entries without an attached Dispatcher are
+            // skipped.
+            bool service_transmitters_once();
 
             // Start/stop all buses (or individual by type)
             bool start_all();
@@ -65,11 +87,12 @@ namespace dc {
             std::vector<Snapshot> snapshot() const;
 
         private:
-            // Declaration order matters: monitor must be destroyed before
-            // the bus it references.
+            // Declaration order matters: monitor/dispatcher must be
+            // destroyed before the bus they reference.
             struct Entry {
                 std::unique_ptr<IBus> bus;
                 std::optional<BusMonitor> monitor;
+                std::optional<Dispatcher> dispatcher;
             };
 
             std::vector<Entry> entries_;
